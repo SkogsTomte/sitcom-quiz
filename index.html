@@ -423,6 +423,16 @@ let currentDifficulty = null;
 let currentIndex = 0;
 let score = 0;
 let answered = false;
+let currentQuestion = null; // shuffled version of the active question
+
+function shuffleQuestion(q) {
+  const order = [0, 1, 2, 3];
+  for (let i = order.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  return { q: q.q, opts: order.map(i => q.opts[i]), a: order.indexOf(q.a) };
+}
 
 // ── Navigation ──
 function showScreen(id) {
@@ -479,21 +489,21 @@ function startQuizLevel(difficulty) {
 // ── Quiz Logic ──
 function showQuestion() {
   const questions = QUIZZES[currentShow][currentDifficulty];
-  const q = questions[currentIndex];
+  currentQuestion = shuffleQuestion(questions[currentIndex]);
   answered = false;
 
   document.getElementById('quizCounter').textContent =
     `${currentIndex + 1} / ${questions.length}`;
   document.getElementById('progressFill').style.width =
     `${(currentIndex / questions.length) * 100}%`;
-  document.getElementById('questionText').textContent = q.q;
+  document.getElementById('questionText').textContent = currentQuestion.q;
 
   const container = document.getElementById('optionsContainer');
   container.innerHTML = '';
   ['A','B','C','D'].forEach((letter, i) => {
     const btn = document.createElement('button');
     btn.className = 'option-btn';
-    btn.innerHTML = `<span class="letter">${letter}</span><span>${q.opts[i]}</span>`;
+    btn.innerHTML = `<span class="letter">${letter}</span><span>${currentQuestion.opts[i]}</span>`;
     btn.onclick = () => selectAnswer(i);
     container.appendChild(btn);
   });
@@ -510,8 +520,7 @@ function selectAnswer(chosen) {
   if (answered) return;
   answered = true;
 
-  const q = QUIZZES[currentShow][currentDifficulty][currentIndex];
-  const correct = q.a;
+  const correct = currentQuestion.a;
   document.querySelectorAll('.option-btn').forEach((btn, i) => {
     btn.disabled = true;
     if (i === correct) btn.classList.add('correct');
@@ -525,7 +534,7 @@ function selectAnswer(chosen) {
     fb.textContent = '✓ Correct!';
   } else {
     fb.className = 'feedback-bar wrong';
-    fb.textContent = `✗ The answer was: ${q.opts[correct]}`;
+    fb.textContent = `✗ The answer was: ${currentQuestion.opts[correct]}`;
   }
   document.getElementById('nextBtn').classList.add('visible');
 }
