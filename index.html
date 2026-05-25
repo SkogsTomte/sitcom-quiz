@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sitcom Quiz</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f0f1a;
+      --card-bg: #1a1a2e;
+      --card-border: #2a2a4a;
+      --text: #e8e8f0;
+      --text-muted: #8888aa;
+      --accent: #6c63ff;
+      --correct: #22c55e;
+      --wrong: #ef4444;
+      --neutral: #3a3a5c;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* ── Header ── */
+    header {
+      width: 100%;
+      padding: 1.2rem 2rem;
+      background: rgba(26,26,46,0.9);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--card-border);
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    header h1 {
+      font-size: 1.3rem;
+      font-weight: 700;
+      background: linear-gradient(90deg, #a78bfa, #60a5fa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      cursor: pointer;
+    }
+    header .back-btn {
+      display: none;
+      align-items: center;
+      gap: 0.4rem;
+      background: none;
+      border: 1px solid var(--card-border);
+      color: var(--text-muted);
+      padding: 0.3rem 0.8rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      margin-left: auto;
+      transition: all 0.15s;
+    }
+    header .back-btn:hover { color: var(--text); border-color: var(--accent); }
+
+    /* ── Screens ── */
+    .screen { display: none; width: 100%; max-width: 820px; padding: 2.5rem 1.5rem; }
+    .screen.active { display: block; animation: fadeIn 0.3s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* ── Home Screen ── */
+    .home-hero { text-align: center; margin-bottom: 2.5rem; }
+    .home-hero h2 { font-size: 2rem; margin-bottom: 0.5rem; }
+    .home-hero p { color: var(--text-muted); font-size: 1rem; }
+
+    .sitcom-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.2rem; }
+
+    .sitcom-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 2rem 1.5rem;
+      cursor: pointer;
+      transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .sitcom-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 4px;
+      background: var(--card-accent);
+    }
+    .sitcom-card:hover { transform: translateY(-4px); box-shadow: 0 8px 32px rgba(0,0,0,0.4); border-color: var(--card-accent); }
+    .sitcom-card .emoji { font-size: 3rem; margin-bottom: 1rem; display: block; }
+    .sitcom-card h3 { font-size: 1.2rem; margin-bottom: 0.5rem; }
+    .sitcom-card p { color: var(--text-muted); font-size: 0.88rem; line-height: 1.4; }
+    .sitcom-card .badge { display: inline-block; margin-top: 1rem; background: rgba(255,255,255,0.08); padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.78rem; color: var(--text-muted); }
+
+    /* ── Quiz Screen ── */
+    .quiz-header { margin-bottom: 1.5rem; }
+    .quiz-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
+    .quiz-title { font-weight: 700; font-size: 1rem; }
+    .quiz-counter { color: var(--text-muted); font-size: 0.9rem; }
+    .progress-track { background: var(--neutral); border-radius: 99px; height: 6px; overflow: hidden; }
+    .progress-fill { height: 100%; border-radius: 99px; transition: width 0.4s ease; }
+
+    .question-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 2rem;
+      margin-bottom: 1.2rem;
+    }
+    .question-text { font-size: 1.1rem; line-height: 1.6; }
+
+    .options { display: grid; gap: 0.75rem; }
+    .option-btn {
+      background: var(--neutral);
+      border: 2px solid transparent;
+      border-radius: 10px;
+      padding: 1rem 1.25rem;
+      color: var(--text);
+      font-size: 0.95rem;
+      cursor: pointer;
+      text-align: left;
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+      transition: all 0.15s;
+      line-height: 1.4;
+    }
+    .option-btn:hover:not(:disabled) { background: #4a4a6e; border-color: var(--accent); }
+    .option-btn .letter {
+      width: 28px; height: 28px; border-radius: 50%;
+      background: rgba(255,255,255,0.1);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 0.8rem; flex-shrink: 0;
+    }
+    .option-btn.correct { background: rgba(34,197,94,0.15); border-color: var(--correct); }
+    .option-btn.correct .letter { background: var(--correct); color: #fff; }
+    .option-btn.wrong { background: rgba(239,68,68,0.15); border-color: var(--wrong); }
+    .option-btn.wrong .letter { background: var(--wrong); color: #fff; }
+    .option-btn:disabled { cursor: not-allowed; }
+
+    .feedback-bar {
+      text-align: center;
+      font-size: 0.95rem;
+      font-weight: 600;
+      padding: 0.75rem;
+      border-radius: 10px;
+      opacity: 0;
+      transition: opacity 0.2s;
+      margin-bottom: 1rem;
+    }
+    .feedback-bar.correct { background: rgba(34,197,94,0.15); color: var(--correct); opacity: 1; }
+    .feedback-bar.wrong { background: rgba(239,68,68,0.15); color: var(--wrong); opacity: 1; }
+
+    .next-btn {
+      width: 100%;
+      padding: 1rem;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+      display: none;
+    }
+    .next-btn:hover { background: #5a52e0; transform: translateY(-1px); }
+    .next-btn.visible { display: block; animation: fadeIn 0.2s ease; }
+
+    /* ── Results Screen ── */
+    .results-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      padding: 2.5rem 2rem;
+      text-align: center;
+    }
+    .score-ring {
+      width: 140px; height: 140px;
+      border-radius: 50%;
+      margin: 0 auto 1.5rem;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2.5rem; font-weight: 800;
+      position: relative;
+    }
+    .score-ring::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      border: 8px solid var(--neutral);
+    }
+    .score-ring::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      border: 8px solid transparent;
+      border-top-color: var(--ring-color);
+      transform: var(--ring-rotation);
+    }
+    .results-title { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem; }
+    .results-subtitle { color: var(--text-muted); margin-bottom: 2rem; }
+    .results-stats { display: flex; justify-content: center; gap: 2rem; margin-bottom: 2rem; }
+    .stat { text-align: center; }
+    .stat-value { font-size: 1.5rem; font-weight: 700; }
+    .stat-label { color: var(--text-muted); font-size: 0.8rem; margin-top: 0.2rem; }
+    .results-actions { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+    .btn-primary { padding: 0.85rem 2rem; background: var(--accent); color: #fff; border: none; border-radius: 10px; font-size: 0.95rem; font-weight: 700; cursor: pointer; transition: background 0.15s; }
+    .btn-primary:hover { background: #5a52e0; }
+    .btn-secondary { padding: 0.85rem 2rem; background: none; color: var(--text); border: 2px solid var(--card-border); border-radius: 10px; font-size: 0.95rem; font-weight: 600; cursor: pointer; transition: border-color 0.15s; }
+    .btn-secondary:hover { border-color: var(--accent); }
+
+    @media (max-width: 500px) {
+      .screen { padding: 1.5rem 1rem; }
+      .question-card { padding: 1.25rem; }
+      .home-hero h2 { font-size: 1.5rem; }
+      .results-stats { gap: 1.2rem; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <span style="font-size:1.4rem">📺</span>
+  <h1 onclick="goHome()">Sitcom Quiz</h1>
+  <button class="back-btn" id="backBtn" onclick="goHome()">← Choose Quiz</button>
+</header>
+
+<!-- Home Screen -->
+<div class="screen active" id="homeScreen">
+  <div class="home-hero">
+    <h2>Which sitcom do you know best?</h2>
+    <p>Pick a show and tackle 20 questions. No peeking!</p>
+  </div>
+  <div class="sitcom-grid">
+    <div class="sitcom-card" style="--card-accent:#f5a623" onclick="startQuiz('seinfeld')">
+      <span class="emoji">🥨</span>
+      <h3>Seinfeld</h3>
+      <p>A show about nothing — but how much do you actually know?</p>
+      <span class="badge">20 Questions</span>
+    </div>
+    <div class="sitcom-card" style="--card-accent:#e8a838" onclick="startQuiz('friends')">
+      <span class="emoji">☕</span>
+      <h3>Friends</h3>
+      <p>Could you BE any more knowledgeable about this show?</p>
+      <span class="badge">20 Questions</span>
+    </div>
+    <div class="sitcom-card" style="--card-accent:#60a5fa" onclick="startQuiz('himym')">
+      <span class="emoji">🍺</span>
+      <h3>How I Met Your Mother</h3>
+      <p>Legen — wait for it — dary questions await.</p>
+      <span class="badge">20 Questions</span>
+    </div>
+  </div>
+</div>
+
+<!-- Quiz Screen -->
+<div class="screen" id="quizScreen">
+  <div class="quiz-header">
+    <div class="quiz-meta">
+      <span class="quiz-title" id="quizTitle"></span>
+      <span class="quiz-counter" id="quizCounter"></span>
+    </div>
+    <div class="progress-track">
+      <div class="progress-fill" id="progressFill" style="width:0%"></div>
+    </div>
+  </div>
+
+  <div class="question-card">
+    <p class="question-text" id="questionText"></p>
+  </div>
+
+  <div class="options" id="optionsContainer"></div>
+
+  <div class="feedback-bar" id="feedbackBar"></div>
+  <button class="next-btn" id="nextBtn" onclick="nextQuestion()">Next Question →</button>
+</div>
+
+<!-- Results Screen -->
+<div class="screen" id="resultsScreen">
+  <div class="results-card">
+    <div class="score-ring" id="scoreRing" style="--ring-color:#6c63ff; --ring-rotation:rotate(-90deg)">
+      <span id="scoreDisplay"></span>
+    </div>
+    <div class="results-title" id="resultsTitle"></div>
+    <div class="results-subtitle" id="resultsSubtitle"></div>
+    <div class="results-stats">
+      <div class="stat">
+        <div class="stat-value" id="statCorrect" style="color:var(--correct)"></div>
+        <div class="stat-label">Correct</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" id="statWrong" style="color:var(--wrong)"></div>
+        <div class="stat-label">Wrong</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value" id="statPercent"></div>
+        <div class="stat-label">Score</div>
+      </div>
+    </div>
+    <div class="results-actions">
+      <button class="btn-primary" onclick="retryQuiz()">Try Again</button>
+      <button class="btn-secondary" onclick="goHome()">Pick Another Show</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const QUIZZES = {
+  seinfeld: {
+    title: "Seinfeld",
+    color: "#f5a623",
+    questions: [
+      {
+        q: "What is the name of the coffee shop where Jerry, George, Elaine, and Kramer regularly hang out?",
+        opts: ["Monk's Café", "Central Perk", "MacLaren's Pub", "The Peach Pit"],
+        a: 0
+      },
+      {
+        q: "What is Cosmo Kramer's first name, which was kept a secret for most of the series?",
+        opts: ["Cosmo", "Carl", "Kenny", "Robert"],
+        a: 0
+      },
+      {
+        q: "What is Elaine Benes' job for most of the series?",
+        opts: ["Editor at J. Peterman", "Waitress at Monk's", "Lawyer at a Manhattan firm", "Assistant to a TV producer"],
+        a: 0
+      },
+      {
+        q: "What phrase does Frank Costanza use to try to relieve stress?",
+        opts: ["\"Serenity now!\"", "\"Calm down!\"", "\"Take it easy!\"", "\"Keep it together!\""],
+        a: 0
+      },
+      {
+        q: "Which character shouts the famous line \"No soup for you!\"?",
+        opts: ["The Soup Nazi", "Newman", "Uncle Leo", "J. Peterman"],
+        a: 0
+      },
+      {
+        q: "What is the name of George Costanza's fiancée who tragically dies in the series?",
+        opts: ["Susan Ross", "Karen Miller", "Diane Burke", "Linda Walsh"],
+        a: 0
+      },
+      {
+        q: "What profession does George Costanza often falsely claim to have in order to impress people?",
+        opts: ["Architect", "Doctor", "Lawyer", "Astronaut"],
+        a: 0
+      },
+      {
+        q: "Who plays Cosmo Kramer in Seinfeld?",
+        opts: ["Michael Richards", "Jason Alexander", "Wayne Knight", "Jerry Stiller"],
+        a: 0
+      },
+      {
+        q: "What is Newman's occupation throughout the series?",
+        opts: ["Mail carrier", "Police officer", "Bus driver", "Janitor"],
+        a: 0
+      },
+      {
+        q: "What fake alias does George Costanza frequently use?",
+        opts: ["Art Vandelay", "Bob Sacamano", "T-Bone", "H.E. Pennypacker"],
+        a: 0
+      },
+      {
+        q: "In later seasons, which New York sports team does George Costanza work for?",
+        opts: ["New York Yankees", "New York Mets", "New York Knicks", "New York Giants"],
+        a: 0
+      },
+      {
+        q: "What is Jerry's apartment number?",
+        opts: ["5A", "2B", "3C", "4D"],
+        a: 0
+      },
+      {
+        q: "Who is Bob Sacamano, mentioned many times by Kramer?",
+        opts: ["Kramer's unseen friend", "George's cousin", "Elaine's ex-boyfriend", "Jerry's neighbour"],
+        a: 0
+      },
+      {
+        q: "What is the name of the fictional TV pilot that Jerry and George develop?",
+        opts: ["Jerry", "The Comedian", "New York", "The Stand-Up"],
+        a: 0
+      },
+      {
+        q: "What is the name of Elaine's on-again, off-again boyfriend known for saying \"Yep\"?",
+        opts: ["David Puddy", "Todd Gack", "Jimmy", "Kevin"],
+        a: 0
+      },
+      {
+        q: "What does Jerry Seinfeld do for a living?",
+        opts: ["Stand-up comedian", "Lawyer", "Writer", "Teacher"],
+        a: 0
+      },
+      {
+        q: "How many seasons did Seinfeld run?",
+        opts: ["9", "7", "10", "8"],
+        a: 0
+      },
+      {
+        q: "What city is Seinfeld set in?",
+        opts: ["New York City", "Los Angeles", "Chicago", "Boston"],
+        a: 0
+      },
+      {
+        q: "What is the famous episode \"The Contest\" a competition about?",
+        opts: [
+          "Who can go the longest without self-gratification",
+          "Who can eat the most food",
+          "Who can stay awake the longest",
+          "Who can remain silent for a full day"
+        ],
+        a: 0
+      },
+      {
+        q: "What does Kramer typically do every time he enters Jerry's apartment?",
+        opts: [
+          "Slides in without knocking",
+          "Rings the doorbell twice",
+          "Knocks three times before entering",
+          "Calls out Jerry's name from the hallway"
+        ],
+        a: 0
+      }
+    ]
+  },
+
+  friends: {
+    title: "Friends",
+    color: "#e8a838",
+    questions: [
+      {
+        q: "What is the name of the coffee shop where the Friends gang hangs out?",
+        opts: ["Central Perk", "Monk's Café", "MacLaren's Pub", "The Brew Haus"],
+        a: 0
+      },
+      {
+        q: "What is Joey Tribbiani's famous catchphrase when flirting?",
+        opts: ["\"How you doin'?\"", "\"Could I BE any more...?\"", "\"Oh my God!\"", "\"We were on a break!\""],
+        a: 0
+      },
+      {
+        q: "What is Chandler Bing's middle name?",
+        opts: ["Muriel", "Matthew", "Michael", "Martin"],
+        a: 0
+      },
+      {
+        q: "What is the name of the song Phoebe Buffay famously performs?",
+        opts: ["\"Smelly Cat\"", "\"Stinky Kitty\"", "\"Dirty Dog\"", "\"Funky Fish\""],
+        a: 0
+      },
+      {
+        q: "How many times has Ross Geller been divorced by the end of the series?",
+        opts: ["3", "2", "4", "1"],
+        a: 0
+      },
+      {
+        q: "What is the name of Ross and Rachel's daughter?",
+        opts: ["Emma", "Grace", "Sophie", "Ella"],
+        a: 0
+      },
+      {
+        q: "What are the first names of Ross and Monica's parents?",
+        opts: ["Jack and Judy", "Bob and Linda", "Frank and Helen", "Dan and Carol"],
+        a: 0
+      },
+      {
+        q: "What is the name of Phoebe's twin sister?",
+        opts: ["Ursula", "Uma", "Ulrika", "Usha"],
+        a: 0
+      },
+      {
+        q: "Which soap opera does Joey Tribbiani star in as Drake Ramoray?",
+        opts: ["Days of Our Lives", "The Young and the Restless", "General Hospital", "The Bold and the Beautiful"],
+        a: 0
+      },
+      {
+        q: "When asked what he does for work, what does Chandler say his job is?",
+        opts: [
+          "Statistical analysis and data reconfiguration",
+          "Corporate lawyer",
+          "Investment banker",
+          "Software engineer"
+        ],
+        a: 0
+      },
+      {
+        q: "What is the name of Ross's first ex-wife?",
+        opts: ["Carol", "Emily", "Elizabeth", "Mona"],
+        a: 0
+      },
+      {
+        q: "Who does Ross end up with at the end of the series?",
+        opts: ["Rachel", "Emily", "Mona", "Elizabeth"],
+        a: 0
+      },
+      {
+        q: "What is Rachel Green's maiden (birth) last name?",
+        opts: ["Green", "Brown", "White", "Geller"],
+        a: 0
+      },
+      {
+        q: "Who does Monica Geller end up marrying?",
+        opts: ["Chandler", "Richard", "Pete", "Chip"],
+        a: 0
+      },
+      {
+        q: "What is Phoebe's fake alias name she uses on several occasions?",
+        opts: ["Regina Phalange", "Princess Consuela", "Valerie Vandermeer", "Susan Bunch"],
+        a: 0
+      },
+      {
+        q: "What is Gunther's job at Central Perk?",
+        opts: ["Manager/Head Barista", "Cook", "Owner", "Waiter"],
+        a: 0
+      },
+      {
+        q: "What city is Friends set in?",
+        opts: ["New York City", "Los Angeles", "Boston", "Chicago"],
+        a: 0
+      },
+      {
+        q: "How many seasons did Friends run?",
+        opts: ["10", "9", "8", "12"],
+        a: 0
+      },
+      {
+        q: "What is the name of Joey and Chandler's beloved pet?",
+        opts: ["A chick and a duck", "A dog named Spot", "A cat named Marcel", "Two goldfish"],
+        a: 0
+      },
+      {
+        q: "What is the famous line Ross yells when moving his new sofa up the stairs?",
+        opts: ["\"Pivot!\"", "\"Push!\"", "\"Lift!\"", "\"Turn!\""],
+        a: 0
+      }
+    ]
+  },
+
+  himym: {
+    title: "How I Met Your Mother",
+    color: "#60a5fa",
+    questions: [
+      {
+        q: "What is Barney Stinson's most famous catchphrase?",
+        opts: [
+          "\"Legen... wait for it... dary!\"",
+          "\"Suit up!\"",
+          "\"Challenge accepted!\"",
+          "\"Haaaave you met Ted?\""
+        ],
+        a: 0
+      },
+      {
+        q: "What is the name of the bar where the gang hangs out?",
+        opts: ["MacLaren's Pub", "Central Perk", "Monk's Café", "The Cheers Bar"],
+        a: 0
+      },
+      {
+        q: "What is Ted Mosby's profession?",
+        opts: ["Architect", "Lawyer", "Doctor", "Teacher"],
+        a: 0
+      },
+      {
+        q: "What color is the famous umbrella that connects Ted and the Mother?",
+        opts: ["Yellow", "Red", "Blue", "Green"],
+        a: 0
+      },
+      {
+        q: "What is Robin Scherbatsky's home country?",
+        opts: ["Canada", "Australia", "England", "New Zealand"],
+        a: 0
+      },
+      {
+        q: "What is the full name of \"the Mother\"?",
+        opts: ["Tracy McConnell", "Sarah Marshall", "Victoria Jones", "Stella Zinman"],
+        a: 0
+      },
+      {
+        q: "What is Barney Stinson's last name?",
+        opts: ["Stinson", "Eriksen", "Aldrin", "Mosby"],
+        a: 0
+      },
+      {
+        q: "What is the name of Marshall and Lily's first son?",
+        opts: ["Marvin", "Max", "Marcus", "Michael"],
+        a: 0
+      },
+      {
+        q: "What is Marshall Eriksen's biggest career dream?",
+        opts: [
+          "Becoming an environmental lawyer",
+          "Becoming a corporate lawyer",
+          "Becoming a judge",
+          "Becoming a law professor"
+        ],
+        a: 0
+      },
+      {
+        q: "What is Lily Aldrin's profession?",
+        opts: ["Kindergarten teacher", "Nurse", "Artist", "Social worker"],
+        a: 0
+      },
+      {
+        q: "What was Robin's stage name as a Canadian teenage pop star?",
+        opts: ["Robin Sparkles", "Robin Glitter", "Robin Stars", "Robin Flash"],
+        a: 0
+      },
+      {
+        q: "Who narrates the story to Ted's kids throughout the series?",
+        opts: ["Bob Saget (voice-over)", "Ted himself in real time", "Marshall", "Robin"],
+        a: 0
+      },
+      {
+        q: "Who does Barney Stinson end up marrying?",
+        opts: ["Robin", "Nora", "Quinn", "Lily"],
+        a: 0
+      },
+      {
+        q: "What is the name of the famous book Barney uses for picking up women?",
+        opts: ["The Playbook", "The Bro Code", "The Stinson Manual", "The Awesome Guide"],
+        a: 0
+      },
+      {
+        q: "What is Ted Mosby's middle name?",
+        opts: ["Evelyn", "Edward", "Eric", "Eugene"],
+        a: 0
+      },
+      {
+        q: "What year did How I Met Your Mother premiere?",
+        opts: ["2005", "2003", "2007", "2006"],
+        a: 0
+      },
+      {
+        q: "What city is How I Met Your Mother set in?",
+        opts: ["New York City", "Chicago", "Los Angeles", "Boston"],
+        a: 0
+      },
+      {
+        q: "How many seasons did How I Met Your Mother run?",
+        opts: ["9", "8", "10", "7"],
+        a: 0
+      },
+      {
+        q: "What is Barney's brother's name?",
+        opts: ["James", "John", "Jeff", "Jerry"],
+        a: 0
+      },
+      {
+        q: "What is the name of Robin's most famous catchphrase / reaction?",
+        opts: [
+          "\"Grinch fingers!\" — No, actually she says \"What the hell?!\"",
+          "\"Suit up!\"",
+          "\"Have you met Ted?\"",
+          "\"Legendary!\""
+        ],
+        a: 0
+      }
+    ]
+  }
+};
+
+// Fix last HIMYM question with a better one
+QUIZZES.himym.questions[19] = {
+  q: "What is the name of the spin-off / sequel series to How I Met Your Mother?",
+  opts: [
+    "How I Met Your Father",
+    "How We Met",
+    "The Barney Chronicles",
+    "MacLaren's Returns"
+  ],
+  a: 0
+};
+
+// ── State ──
+let currentQuiz = null;
+let currentIndex = 0;
+let score = 0;
+let answered = false;
+
+// ── Navigation ──
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.getElementById('backBtn').style.display = (id !== 'homeScreen') ? 'flex' : 'none';
+}
+
+function goHome() {
+  currentQuiz = null;
+  showScreen('homeScreen');
+}
+
+// ── Quiz Logic ──
+function startQuiz(key) {
+  currentQuiz = key;
+  currentIndex = 0;
+  score = 0;
+  answered = false;
+
+  const quiz = QUIZZES[key];
+  const fill = document.getElementById('progressFill');
+  fill.style.background = `linear-gradient(90deg, ${quiz.color}, ${quiz.color}cc)`;
+
+  document.getElementById('quizTitle').textContent = `📺 ${quiz.title}`;
+  showQuestion();
+  showScreen('quizScreen');
+}
+
+function showQuestion() {
+  const quiz = QUIZZES[currentQuiz];
+  const q = quiz.questions[currentIndex];
+  answered = false;
+
+  // counter & progress
+  document.getElementById('quizCounter').textContent = `${currentIndex + 1} / ${quiz.questions.length}`;
+  document.getElementById('progressFill').style.width = `${(currentIndex / quiz.questions.length) * 100}%`;
+
+  // question
+  document.getElementById('questionText').textContent = q.q;
+
+  // options
+  const container = document.getElementById('optionsContainer');
+  container.innerHTML = '';
+  const letters = ['A', 'B', 'C', 'D'];
+  q.opts.forEach((opt, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'option-btn';
+    btn.innerHTML = `<span class="letter">${letters[i]}</span><span>${opt}</span>`;
+    btn.onclick = () => selectAnswer(i);
+    container.appendChild(btn);
+  });
+
+  // hide feedback & next
+  const fb = document.getElementById('feedbackBar');
+  fb.className = 'feedback-bar';
+  fb.textContent = '';
+  const nb = document.getElementById('nextBtn');
+  nb.classList.remove('visible');
+  const isLast = currentIndex === quiz.questions.length - 1;
+  nb.textContent = isLast ? 'See Results →' : 'Next Question →';
+}
+
+function selectAnswer(chosen) {
+  if (answered) return;
+  answered = true;
+
+  const quiz = QUIZZES[currentQuiz];
+  const q = quiz.questions[currentIndex];
+  const correct = q.a;
+  const buttons = document.querySelectorAll('.option-btn');
+
+  buttons.forEach((btn, i) => {
+    btn.disabled = true;
+    if (i === correct) btn.classList.add('correct');
+    if (i === chosen && chosen !== correct) btn.classList.add('wrong');
+  });
+
+  const fb = document.getElementById('feedbackBar');
+  if (chosen === correct) {
+    score++;
+    fb.className = 'feedback-bar correct';
+    fb.textContent = '✓ Correct!';
+  } else {
+    fb.className = 'feedback-bar wrong';
+    fb.textContent = `✗ The answer was: ${q.opts[correct]}`;
+  }
+
+  document.getElementById('nextBtn').classList.add('visible');
+}
+
+function nextQuestion() {
+  const quiz = QUIZZES[currentQuiz];
+  currentIndex++;
+  if (currentIndex >= quiz.questions.length) {
+    showResults();
+  } else {
+    showQuestion();
+  }
+}
+
+// ── Results ──
+function showResults() {
+  const quiz = QUIZZES[currentQuiz];
+  const total = quiz.questions.length;
+  const pct = Math.round((score / total) * 100);
+
+  document.getElementById('progressFill').style.width = '100%';
+
+  document.getElementById('scoreDisplay').textContent = `${score}/${total}`;
+  document.getElementById('statCorrect').textContent = score;
+  document.getElementById('statWrong').textContent = total - score;
+  document.getElementById('statPercent').textContent = `${pct}%`;
+
+  let title, subtitle, ringColor;
+  if (pct >= 90) {
+    title = "Outstanding! 🏆"; subtitle = "You're basically a sitcom encyclopedia!"; ringColor = "#22c55e";
+  } else if (pct >= 70) {
+    title = "Great job! 🌟"; subtitle = "You clearly paid attention during those binge sessions."; ringColor = "#f5a623";
+  } else if (pct >= 50) {
+    title = "Not bad! 👍"; subtitle = "Maybe time for a rewatch to brush up?"; ringColor = "#60a5fa";
+  } else if (pct >= 30) {
+    title = "Keep watching! 📺"; subtitle = "There's still plenty to discover in this classic show."; ringColor = "#a78bfa";
+  } else {
+    title = "Tough crowd! 😅"; subtitle = "Hit play and start from Season 1 — trust us!"; ringColor = "#ef4444";
+  }
+
+  document.getElementById('resultsTitle').textContent = title;
+  document.getElementById('resultsSubtitle').textContent = subtitle;
+
+  const ring = document.getElementById('scoreRing');
+  ring.style.setProperty('--ring-color', ringColor);
+  const deg = -90 + (pct / 100) * 360;
+  ring.style.setProperty('--ring-rotation', `rotate(${deg}deg)`);
+
+  showScreen('resultsScreen');
+}
+
+function retryQuiz() {
+  startQuiz(currentQuiz);
+}
+</script>
+</body>
+</html>
